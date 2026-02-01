@@ -103,6 +103,7 @@ export function PhoneNumberForm(props: PhoneNumberFormProps) {
   const recaptchaContainerRef = useRef<HTMLDivElement>(null);
   const recaptchaVerifier = useRecaptchaVerifier(recaptchaContainerRef);
   const countrySelector = useRef<CountrySelectorRef>(null);
+
   const form = usePhoneNumberForm({
     recaptchaVerifier: recaptchaVerifier!,
     onSuccess: props.onSubmit,
@@ -115,7 +116,9 @@ export function PhoneNumberForm(props: PhoneNumberFormProps) {
       onSubmit={async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        await form.handleSubmit();
+        if (recaptchaVerifier) {
+          await form.handleSubmit();
+        }
       }}
     >
       <form.AppForm>
@@ -135,7 +138,9 @@ export function PhoneNumberForm(props: PhoneNumberFormProps) {
         </fieldset>
         <Policies />
         <fieldset>
-          <form.SubmitButton>{getTranslation(ui, "labels", "sendCode")}</form.SubmitButton>
+          <form.SubmitButton disabled={!recaptchaVerifier}>
+            {getTranslation(ui, "labels", "sendCode")}
+          </form.SubmitButton>
           <form.ErrorMessage />
         </fieldset>
       </form.AppForm>

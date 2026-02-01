@@ -114,7 +114,9 @@ function MultiFactorEnrollmentPhoneNumberForm(props: MultiFactorEnrollmentPhoneN
       onSubmit={async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        await form.handleSubmit();
+        if (recaptchaVerifier) {
+          await form.handleSubmit();
+        }
       }}
     >
       <form.AppForm>
@@ -138,7 +140,9 @@ function MultiFactorEnrollmentPhoneNumberForm(props: MultiFactorEnrollmentPhoneN
           <div className="fui-recaptcha-container" ref={recaptchaContainerRef} />
         </fieldset>
         <fieldset>
-          <form.SubmitButton>{getTranslation(ui, "labels", "sendCode")}</form.SubmitButton>
+          <form.SubmitButton disabled={!recaptchaVerifier}>
+            {getTranslation(ui, "labels", "sendCode")}
+          </form.SubmitButton>
           <form.ErrorMessage />
         </fieldset>
       </form.AppForm>

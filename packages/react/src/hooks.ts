@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { useContext, useMemo, useEffect, useRef } from "react";
+import { useContext, useMemo, useEffect, useRef, useState } from "react";
 import type { RecaptchaVerifier, User } from "firebase/auth";
 import {
   createEmailLinkAuthFormSchema,
@@ -200,7 +200,7 @@ export function useMultiFactorTotpAuthVerifyFormSchema() {
  */
 export function useRecaptchaVerifier(ref: React.RefObject<HTMLDivElement | null>) {
   const ui = useUI();
-  const verifierRef = useRef<RecaptchaVerifier | null>(null);
+  const [verifier, setVerifier] = useState<RecaptchaVerifier | null>(null);
   const uiRef = useRef(ui);
   const prevElementRef = useRef<HTMLDivElement | null>(null);
 
@@ -213,13 +213,19 @@ export function useRecaptchaVerifier(ref: React.RefObject<HTMLDivElement | null>
     if (currentElement !== prevElementRef.current) {
       prevElementRef.current = currentElement;
       if (currentElement) {
-        verifierRef.current = getBehavior(currentUI, "recaptchaVerification")(currentUI, currentElement);
-        verifierRef.current.render();
+        try {
+          const newVerifier = getBehavior(currentUI, "recaptchaVerification")(currentUI, currentElement);
+          newVerifier.render();
+          setVerifier(newVerifier);
+        } catch (error) {
+          console.error('[useRecaptchaVerifier] Failed to create/render verifier:', error);
+          setVerifier(null);
+        }
       } else {
-        verifierRef.current = null;
+        setVerifier(null);
       }
     }
   }, [ref]);
 
-  return verifierRef.current;
+  return verifier;
 }

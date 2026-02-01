@@ -110,7 +110,9 @@ function SmsMultiFactorAssertionPhoneForm(props: SmsMultiFactorAssertionPhoneFor
       onSubmit={async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        await form.handleSubmit();
+        if (recaptchaVerifier) {
+          await form.handleSubmit();
+        }
       }}
     >
       <form.AppForm>
@@ -127,7 +129,9 @@ function SmsMultiFactorAssertionPhoneForm(props: SmsMultiFactorAssertionPhoneFor
           <div className="fui-recaptcha-container" ref={recaptchaContainerRef} />
         </fieldset>
         <fieldset>
-          <form.SubmitButton>{getTranslation(ui, "labels", "sendCode")}</form.SubmitButton>
+          <form.SubmitButton disabled={!recaptchaVerifier}>
+            {getTranslation(ui, "labels", "sendCode")}
+          </form.SubmitButton>
           <form.ErrorMessage />
         </fieldset>
       </form.AppForm>
