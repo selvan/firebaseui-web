@@ -78,6 +78,7 @@ import { verifyPhoneNumber, confirmPhoneNumber } from "@firebase-oss/ui-core";
 import { createFirebaseUIProvider, createMockUI } from "~/tests/utils";
 import { registerLocale } from "@firebase-oss/ui-translations";
 import { FirebaseUIProvider } from "~/context";
+import { useRecaptchaVerifier } from "~/hooks";
 
 vi.mock("~/components/country-selector", () => ({
   CountrySelector: vi.fn().mockImplementation(({ value, onChange, ref }: any) => {
@@ -578,6 +579,16 @@ describe("<PhoneAuthForm />", () => {
     const mockVerificationId = "test-verification-id";
     vi.mocked(verifyPhoneNumber).mockResolvedValue(mockVerificationId);
 
+    // Create a mock verifier that simulates async render()
+    const mockVerifier = {
+      render: vi.fn().mockResolvedValue(123),
+      clear: vi.fn(),
+      verify: vi.fn().mockResolvedValue("verification-token"),
+    };
+
+    // Override the global mock to return our specific verifier
+    vi.mocked(useRecaptchaVerifier).mockReturnValue(mockVerifier as unknown as import("firebase/auth").RecaptchaVerifier);
+
     const { container } = render(
       <FirebaseUIProvider ui={mockUI}>
         <PhoneAuthForm />
@@ -591,8 +602,33 @@ describe("<PhoneAuthForm />", () => {
 
     await act(async () => {
       fireEvent.change(phoneInput, { target: { value: "1234567890" } });
+    });
+
+    // Check if there are any validation errors before submitting
+    const errorBeforeSubmit = screen.queryByTestId("error-message");
+    if (errorBeforeSubmit) {
+      throw new Error(`Form has validation error before submit: ${errorBeforeSubmit.textContent}`);
+    }
+
+    await act(async () => {
       fireEvent.click(sendCodeButton);
     });
+
+    // Wait for the async form submission to complete
+    await waitFor(
+      () => {
+        expect(verifyPhoneNumber).toHaveBeenCalled();
+      },
+      { timeout: 3000 }
+    );
+
+    // Verify that verifyPhoneNumber was called with the verifier
+    // Note: The phone number gets formatted, so we check for the formatted version
+    expect(verifyPhoneNumber).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringMatching(/1.*234.*567.*890/), // Matches formatted phone number like "1(234)567-890" or "+11234567890"
+      mockVerifier
+    );
 
     const verificationInput = await waitFor(() => {
       return screen.getByRole("textbox", { name: /verificationCode/i });
