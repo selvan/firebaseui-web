@@ -587,7 +587,9 @@ describe("<PhoneAuthForm />", () => {
     };
 
     // Override the global mock to return our specific verifier
-    vi.mocked(useRecaptchaVerifier).mockReturnValue(mockVerifier as unknown as import("firebase/auth").RecaptchaVerifier);
+    vi.mocked(useRecaptchaVerifier).mockReturnValue(
+      mockVerifier as unknown as import("firebase/auth").RecaptchaVerifier
+    );
 
     const { container } = render(
       <FirebaseUIProvider ui={mockUI}>
