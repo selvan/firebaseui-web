@@ -218,7 +218,7 @@ export function useRecaptchaVerifier(ref: React.RefObject<HTMLDivElement | null>
           newVerifier.render();
           setVerifier(newVerifier);
         } catch (error) {
-          console.error('[useRecaptchaVerifier] Failed to create/render verifier:', error);
+          console.error("[useRecaptchaVerifier] Failed to create/render verifier:", error);
           setVerifier(null);
         }
       } else {
