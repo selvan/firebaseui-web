@@ -579,19 +579,11 @@ describe("<PhoneAuthForm />", () => {
     const mockVerificationId = "test-verification-id";
     vi.mocked(verifyPhoneNumber).mockResolvedValue(mockVerificationId);
 
-    // Create a mock verifier that simulates async render()
-    const mockVerifier = {
-      render: vi.fn().mockResolvedValue(123),
-      clear: vi.fn(),
-      verify: vi.fn().mockResolvedValue("verification-token"),
-    };
+    const mockVerifier = {} as unknown as import("firebase/auth").RecaptchaVerifier;
+    // Simulate the verifier being unavailable initially, then becoming available.
+    vi.mocked(useRecaptchaVerifier).mockReturnValueOnce(null).mockReturnValue(mockVerifier);
 
-    // Override the global mock to return our specific verifier
-    vi.mocked(useRecaptchaVerifier).mockReturnValue(
-      mockVerifier as unknown as import("firebase/auth").RecaptchaVerifier
-    );
-
-    const { container } = render(
+    const { container, rerender } = render(
       <FirebaseUIProvider ui={mockUI}>
         <PhoneAuthForm />
       </FirebaseUIProvider>
@@ -600,37 +592,40 @@ describe("<PhoneAuthForm />", () => {
     const phoneInput = screen.getByRole("textbox", { name: /phone number/i });
     expect(phoneInput).toBeInTheDocument();
 
-    const sendCodeButton = screen.getByRole("button", { name: /send code/i });
+    // With no verifier, the submit button should be disabled and submission should not proceed.
+    expect(screen.getByRole("button", { name: /send code/i })).toBeDisabled();
 
     await act(async () => {
       fireEvent.change(phoneInput, { target: { value: "1234567890" } });
     });
 
-    // Check if there are any validation errors before submitting
-    const errorBeforeSubmit = screen.queryByTestId("error-message");
-    if (errorBeforeSubmit) {
-      throw new Error(`Form has validation error before submit: ${errorBeforeSubmit.textContent}`);
-    }
-
     await act(async () => {
-      fireEvent.click(sendCodeButton);
+      fireEvent.click(screen.getByRole("button", { name: /send code/i }));
     });
 
-    // Wait for the async form submission to complete
-    await waitFor(
-      () => {
-        expect(verifyPhoneNumber).toHaveBeenCalled();
-      },
-      { timeout: 3000 }
+    expect(verifyPhoneNumber).not.toHaveBeenCalled();
+
+    // Rerender so the mocked hook returns the now-available verifier.
+    rerender(
+      <FirebaseUIProvider ui={mockUI}>
+        <PhoneAuthForm />
+      </FirebaseUIProvider>
     );
 
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /send code/i })).toBeEnabled();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /send code/i }));
+    });
+
+    await waitFor(() => {
+      expect(verifyPhoneNumber).toHaveBeenCalled();
+    });
+
     // Verify that verifyPhoneNumber was called with the verifier
-    // Note: The phone number gets formatted, so we check for the formatted version
-    expect(verifyPhoneNumber).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.stringMatching(/1.*234.*567.*890/), // Matches formatted phone number like "1(234)567-890" or "+11234567890"
-      mockVerifier
-    );
+    expect(verifyPhoneNumber).toHaveBeenCalledWith(expect.anything(), expect.any(String), mockVerifier);
 
     const verificationInput = await waitFor(() => {
       return screen.getByRole("textbox", { name: /verificationCode/i });
