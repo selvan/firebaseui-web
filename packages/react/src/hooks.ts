@@ -203,28 +203,64 @@ export function useRecaptchaVerifier(ref: React.RefObject<HTMLDivElement | null>
   const [verifier, setVerifier] = useState<RecaptchaVerifier | null>(null);
   const uiRef = useRef(ui);
   const prevElementRef = useRef<HTMLDivElement | null>(null);
+  const activeVerifierRef = useRef<RecaptchaVerifier | null>(null);
 
   uiRef.current = ui;
 
   useEffect(() => {
+    let cancelled = false;
     const currentElement = ref.current;
     const currentUI = uiRef.current;
 
     if (currentElement !== prevElementRef.current) {
       prevElementRef.current = currentElement;
-      if (currentElement) {
+
+      // Tear down any previous verifier before creating a new one.
+      if (activeVerifierRef.current) {
         try {
-          const newVerifier = getBehavior(currentUI, "recaptchaVerification")(currentUI, currentElement);
-          newVerifier.render();
-          setVerifier(newVerifier);
-        } catch (error) {
-          console.error("[useRecaptchaVerifier] Failed to create/render verifier:", error);
-          setVerifier(null);
+          activeVerifierRef.current.clear();
+        } catch {
+          // ignore
         }
+        activeVerifierRef.current = null;
+      }
+
+      // Until render() completes, treat verifier as unavailable to callers.
+      setVerifier(null);
+
+      if (currentElement) {
+        (async () => {
+          try {
+            const newVerifier = getBehavior(currentUI, "recaptchaVerification")(currentUI, currentElement);
+            activeVerifierRef.current = newVerifier;
+            await newVerifier.render();
+
+            if (cancelled || activeVerifierRef.current !== newVerifier) {
+              // Element changed/unmounted while rendering; clean up the stale verifier.
+              try {
+                newVerifier.clear();
+              } catch {
+                // ignore
+              }
+              return;
+            }
+
+            setVerifier(newVerifier);
+          } catch (error) {
+            console.error("[useRecaptchaVerifier] Failed to create/render verifier:", error);
+            if (!cancelled) {
+              setVerifier(null);
+            }
+          }
+        })();
       } else {
         setVerifier(null);
       }
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [ref]);
 
   return verifier;
